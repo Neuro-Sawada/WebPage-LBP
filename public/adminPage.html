@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color:rgba(228, 228, 228, 0.877);">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard - Lilly Brothers Painting</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+    <h1>Lilly Brothers Painting</h1>
+    <nav id="navBar" class="main-nav"></nav>
+</header>
+
+<main>
+<section class="dashboard-section">
+    <div class="dashboard-header admin-header">
+        <div>
+            <h2>Administrator Panel</h2>
+            <p class="dashboard-subtitle">Manage incoming quote requests, review customer details, and track recent activity.</p>
+        </div>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-4">
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Total Quotes</span>
+            <h3 id="totalQuotes">0</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Estimated Revenue</span>
+            <h3 id="totalRevenue">$0.00</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Average Quote</span>
+            <h3 id="avgQuote">$0.00</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Upcoming Appointments</span>
+            <h3 id="upcomingCount">0</h3>
+        </div>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-3">
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Newest Request</h3>
+            </div>
+            <p id="latestCustomer" class="dashboard-text">Loading...</p>
+            <p id="latestDate" class="dashboard-muted">Loading...</p>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Latest Quote Price</h3>
+            </div>
+            <p id="latestPrice" class="admin-highlight-number">$0.00</p>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Latest Project Description</h3>
+            </div>
+            <p id="latestDescription" class="dashboard-text">Loading...</p>
+        </div>
+    </div>
+
+    <div class="dashboard-card table-card">
+        <div class="card-header-row admin-table-header">
+            <div>
+                <h3>Submitted Quotes</h3>
+                <p class="dashboard-muted" style="margin:6px 0 0;">Click a row to view the full quote details.</p>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="admin-table interactive-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Appointment</th>
+                        <th>Quote Price</th>
+                        <th>Rooms</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody id="quotesBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+</main>
+
+<footer>
+    <p>© 2026 Lilly Brothers Painting</p>
+</footer>
+
+<script>
+fetch("/current-user")
+.then(res => res.json())
+.then(data => {
+    const nav = document.getElementById("navBar");
+
+    if (data.loggedIn) {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About Us</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <span class="dropdown-user">Welcome, ${data.username}</span>
+                    <a href="/user">My Page</a>
+                    ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        `;
+    } else {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <a href="/login">Login</a>
+                </div>
+            </div>
+        `;
+    }
+})
+.catch(err => console.log(err));
+
+function toggleMenu(event, menuId) {
+    event.stopPropagation();
+
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        if (menu.id !== menuId) {
+            menu.style.display = "none";
+        }
+    });
+
+    const menu = document.getElementById(menuId);
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+window.addEventListener("click", function() {
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        menu.style.display = "none";
+    });
+});
+
+function countRooms(roomsText) {
+    if (!roomsText || roomsText === "N/A") return 0;
+    return roomsText.split(" || ").filter(item => item.trim() !== "").length;
+}
+
+function formatMoney(value) {
+    const num = Number(value);
+    if (Number.isNaN(num)) return "$0.00";
+    return `$${num.toFixed(2)}`;
+}
+
+function buildRoomCards(roomsText) {
+    if (!roomsText || roomsText === "N/A") {
+        return `<p class="dashboard-muted">No room details available.</p>`;
+    }
+
+    const rooms = roomsText
+        .split(" || ")
+        .map(room => room.trim())
+        .filter(room => room !== "");
+
+    return rooms.map(room => {
+        const parts = room.split(" | ").map(part => part.trim());
+
+        const roomName = parts[0] || "Room";
+        const paintType = parts[1] || "No paint type";
+        const color = parts[2] || "No color";
+        const size = parts[3] || "0 sq ft";
+        const details = parts[4] || "No room description";
+
+        return `
+            <div class="mini-room-card">
+                <div class="mini-room-top">
+                    <h4>${roomName}</h4>
+                    <span class="mini-room-size">${size}</span>
+                </div>
+
+                <div class="mini-room-meta">
+                    <span><strong>Paint:</strong> ${paintType}</span>
+                    <span><strong>Color:</strong> ${color}</span>
+                </div>
+
+                <p class="mini-room-description">${details}</p>
+            </div>
+        `;
+    }).join("");
+}
+
+function buildExpandedRow(q) {
+    return `
+        <tr class="quote-details-row">
+            <td colspan="6">
+                <div class="quote-details-panel">
+                    <div class="quote-details-grid">
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Customer</span>
+                            <p>${q.first_name ?? ""} ${q.last_name ?? ""}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Phone</span>
+                            <p>${q.phone_number ?? "N/A"}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Email</span>
+                            <p>${q.email ?? "N/A"}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Appointment</span>
+                            <p>${q.appointment_date ?? "N/A"}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Quote Price</span>
+                            <p>${q.quote_price ? formatMoney(q.quote_price) : "N/A"}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Created At</span>
+                            <p>${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</p>
+                        </div>
+                    </div>
+
+                    <div class="quote-description-panel">
+                        <span class="quote-detail-label">Project Description</span>
+                        <p>${q.description ?? "No description provided."}</p>
+                    </div>
+
+                    <div class="quote-rooms-panel">
+                        <span class="quote-detail-label">Room Details</span>
+                        <div class="room-details-grid" style="margin-top:12px;">
+                            ${buildRoomCards(q.rooms)}
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function collapseAllRows() {
+    document.querySelectorAll(".quote-row").forEach(row => {
+        row.classList.remove("active");
+    });
+
+    document.querySelectorAll(".quote-details-row").forEach(row => {
+        row.remove();
+    });
+}
+
+fetch("/quotes")
+.then(res => {
+    if (!res.ok) throw new Error("Could not load quotes");
+    return res.json();
+})
+.then(data => {
+    const body = document.getElementById("quotesBody");
+
+    document.getElementById("totalQuotes").textContent = data.length;
+
+    const totalRevenue = data.reduce((sum, q) => sum + (Number(q.quote_price) || 0), 0);
+    const avgQuote = data.length ? totalRevenue / data.length : 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcomingCount = data.filter(q => {
+        if (!q.appointment_date) return false;
+        const appt = new Date(q.appointment_date);
+        return !Number.isNaN(appt.getTime()) && appt >= today;
+    }).length;
+
+    document.getElementById("totalRevenue").textContent = formatMoney(totalRevenue);
+    document.getElementById("avgQuote").textContent = formatMoney(avgQuote);
+    document.getElementById("upcomingCount").textContent = upcomingCount;
+
+    if (data.length > 0) {
+        const latest = data[0];
+
+        document.getElementById("latestCustomer").textContent =
+            `${latest.first_name ?? ""} ${latest.last_name ?? ""}`.trim() || "N/A";
+
+        document.getElementById("latestDate").textContent =
+            latest.appointment_date ? `Appointment: ${latest.appointment_date}` : "Appointment: N/A";
+
+        document.getElementById("latestPrice").textContent =
+            latest.quote_price ? formatMoney(latest.quote_price) : "N/A";
+
+        document.getElementById("latestDescription").textContent =
+            latest.description || "No description provided.";
+    } else {
+        document.getElementById("latestCustomer").textContent = "No requests yet";
+        document.getElementById("latestDate").textContent = "Appointment: N/A";
+        document.getElementById("latestPrice").textContent = "$0.00";
+        document.getElementById("latestDescription").textContent = "No description available.";
+    }
+
+    if (data.length === 0) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="6" class="table-empty">No quotes submitted yet.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    data.forEach(q => {
+        const row = document.createElement("tr");
+        row.className = "quote-row";
+
+        row.innerHTML = `
+            <td>#${q.id ?? "N/A"}</td>
+            <td>${q.first_name ?? ""} ${q.last_name ?? ""}</td>
+            <td class="date-cell">${q.appointment_date ?? "N/A"}</td>
+            <td class="price-cell">${q.quote_price ? formatMoney(q.quote_price) : "N/A"}</td>
+            <td>${countRooms(q.rooms)}</td>
+            <td class="date-cell">${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</td>
+        `;
+
+        row.addEventListener("click", () => {
+            const isOpen = row.classList.contains("active");
+
+            collapseAllRows();
+
+            if (!isOpen) {
+                row.classList.add("active");
+                row.insertAdjacentHTML("afterend", buildExpandedRow(q));
+            }
+        });
+
+        body.appendChild(row);
+    });
+})
+.catch(err => {
+    console.error(err);
+    document.getElementById("quotesBody").innerHTML = `
+        <tr>
+            <td colspan="6" class="table-empty">Error loading quotes.</td>
+        </tr>
+    `;
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color:rgba(228, 228, 228, 0.877);">
+<head>
+    <meta charset="UTF-8">
+    <title>Perfect Coat Painting</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<header>
+    <h1>Lilly Brothers Painting</h1>
+    <nav id="navBar" class="main-nav">
+
+    </nav>
+</header>
+<main>
+<section class="hero">
+    <div class="hero-text">
+        <h1>Professional Painting Services</h1>
+        <a href="/quote" class="hero-button">Get a Free Quote</a>
+    </div>
+</section>
+
+<div class="mainTEXT-IMG">
+    <div class="textParra" style="margin-left: 50px;">
+        <h2 style="font-family: 'Times New Roman', Times, serif; font-size: 35px;">
+            Professional Residential & Commercial Painting
+        </h2>
+
+        <p style="font-size: 20px;font-family: 'Times New Roman', Times, serif; font-style: italic;">
+            Quality work you can trust
+        </p>
+        
+        <h2 style="text-align: left;font-family: 'Times New Roman', Times, serif;font-size: 30px;">
+            Lilly Brothers Painting
+        </h2>
+
+        <p style="text-align: justify; font-size: 25px;font-family: 'Times New Roman', Times, serif;">
+            Lilly Brothers Painting in Cincinnati stands out as a house painter neighbors would 
+            “recommend again and again.” Clients highlight work on tall foyers, stairways, high ceilings needing drywall repairs, 
+            and full interior projects in new homes.
+        </p> 
+    
+        <p style="text-align: justify; font-size: 25px;font-family: 'Times New Roman', Times, serif;">
+            The craftsmanship is described as a “fine job” with “beautiful end result,” thanks to 
+            strong attention to detail and special techniques for hiding imperfections in the wall. His passion for his 
+            work and very nice, personable manner make the experience especially positive. With plans for additional exterior work based on 
+            prior results, Lilly Brothers Painting is a trusted, go-to choice for stylish interior transformations and meticulous finishing.
+        </p> 
+    </div>
+
+    <img class="mainIMG" src="https://www.roepaint.com/hubfs/Imported%20sitepage%20images/Rectangle-86-1.jpg"/>
+</div>
+
+<div class="services">
+    <h2>Our Services</h2>
+    
+    <div class="services-container">
+        <div class="service-card">
+            <img src="https://armadillopainting.com/wp-content/uploads/2019/02/brentloe-interior-house-painting.jpg">
+            <h3>Interior Painting</h3>
+            <p>Walls, ceilings, trim and complete interior finishes.</p>
+        </div>
+    
+        <div class="service-card">
+            <img src="https://cdn.prod.website-files.com/64356ffd464c58ea193070f4/67d2f1202eed376054ec77d6_istockphoto-176882062-612x612.jpg">
+            <h3>Exterior Painting</h3>
+            <p>Protect and beautify the outside of your home.</p>
+        </div>
+    
+        <div class="service-card">
+            <img src="https://martinsonpainting.com/wp-content/uploads/2019/11/Commercial-Painting-Fanatics-Locations.jpg">
+            <h3>Commercial Painting</h3>
+            <p>Professional painting for offices and businesses.</p>
+        </div>
+    </div>
+</div>
+
+<section class="reviews-section">
+    <h2 class="reviews-title">Reviews from our Clients!</h2>
+    
+    <div class="reviews-container">
+        <div class="review-box">
+            <div class="stars">★★★★★</div>
+            <h4>John M.</h4>
+            <p>
+            Lilly Brothers Painting did an amazing job on our living room and 
+            high ceilings. Very professional and clean work!
+            </p>
+        </div>
+        
+        <div class="review-box">
+            <h4>Sarah L.</h4>
+            <p>
+            "Great attention to detail and very friendly service. 
+            Our house looks brand new."
+            </p>
+        </div>
+    
+        <div class="review-box">
+            <h4>Michael R.</h4>
+            <p>
+            "Highly recommend them. They repaired drywall and painted our 
+            entire first floor perfectly."
+            </p>
+        </div>
+    </div>
+</section>
+</main>
+<footer>
+    <p>© 2026 Perfect Coat Painting</p>
+</footer>
+
+
+
+
+<script>
+fetch("/current-user")
+.then(res => res.json())
+.then(data => {
+    const nav = document.getElementById("navBar");
+
+    if (data.loggedIn) {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact">Contact</a>
+                    <a href="/about">About Us</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <span class="dropdown-user">Welcome, ${data.username}</span>
+                    <a href="/user">My Page</a>
+                    ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        `;
+    } else {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <a href="/login">Login</a>
+                </div>
+            </div>
+        `;
+    }
+})
+.catch(err => console.log(err));
+
+function toggleMenu(event, menuId) {
+    event.stopPropagation();
+
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        if (menu.id !== menuId) {
+            menu.style.display = "none";
+        }
+    });
+
+    const menu = document.getElementById(menuId);
+
+    if (menu.style.display === "block") {
+        menu.style.display = "none";
+    } else {
+        menu.style.display = "block";
+    }
+}
+
+window.addEventListener("click", function() {
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        menu.style.display = "none";
+    });
+});
+</script>
+
+
+</body>
+</html>

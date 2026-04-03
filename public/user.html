@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color:rgba(228, 228, 228, 0.877);">
+<head>
+    <meta charset="UTF-8">
+    <title>User Dashboard</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+    <h1>Lilly Brothers Painting</h1>
+    <nav id="navBar" class="main-nav"></nav>
+</header>
+
+<main>
+<section class="dashboard-section">
+    <div class="dashboard-header">
+        <div>
+            <h2 id="welcomeTitle">Welcome</h2>
+            <p class="dashboard-subtitle">Track your quotes, appointments, and room details in one place.</p>
+        </div>
+
+        <a href="/quote" class="hero-button dashboard-cta">Request New Quote</a>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-3">
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Full Name</span>
+            <h3 id="fullNameBox">Loading...</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Email</span>
+            <h3 id="emailBox">Loading...</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Total Quotes</span>
+            <h3 id="totalQuotesBox">0</h3>
+        </div>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-3">
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Latest Quote Price</span>
+            <h3 id="priceBox">Loading...</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Latest Appointment</span>
+            <h3 id="dateBox">Loading...</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Rooms in Latest Quote</span>
+            <h3 id="roomsCountBox">Loading...</h3>
+        </div>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-2">
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Latest Project Description</h3>
+            </div>
+            <p id="descriptionBox" class="dashboard-text">Loading...</p>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Current Status</h3>
+            </div>
+            <p id="statusBox" class="dashboard-text">Loading...</p>
+            <p id="summaryBox" class="dashboard-muted">Loading...</p>
+        </div>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-header-row">
+            <h3>Latest Room Details</h3>
+        </div>
+        <div id="latestRoomsBox" class="room-details-grid">
+            <p class="dashboard-muted">Loading...</p>
+        </div>
+    </div>
+
+    <div class="dashboard-card table-card">
+        <div class="card-header-row">
+            <h3>My Submitted Quotes</h3>
+            <span class="dashboard-muted" style="margin:0;">Click a row to see full details</span>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="admin-table interactive-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Appointment</th>
+                        <th>Quote Price</th>
+                        <th>Rooms</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody id="myQuotesBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+</main>
+
+<footer>
+    <p>© 2026 Lilly Brothers Painting</p>
+</footer>
+
+<script>
+fetch("/current-user")
+.then(res => res.json())
+.then(data => {
+    const nav = document.getElementById("navBar");
+
+    if (data.loggedIn) {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About Us</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <span class="dropdown-user">Welcome, ${data.username}</span>
+                    <a href="/user">My Page</a>
+                    ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        `;
+    } else {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <a href="/login">Login</a>
+                </div>
+            </div>
+        `;
+    }
+})
+.catch(err => console.log(err));
+
+function toggleMenu(event, menuId) {
+    event.stopPropagation();
+
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        if (menu.id !== menuId) {
+            menu.style.display = "none";
+        }
+    });
+
+    const menu = document.getElementById(menuId);
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+window.addEventListener("click", function() {
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        menu.style.display = "none";
+    });
+});
+
+function countRooms(roomsText) {
+    if (!roomsText || roomsText === "N/A") return 0;
+    return roomsText.split(" || ").filter(item => item.trim() !== "").length;
+}
+
+function buildRoomCards(roomsText) {
+    if (!roomsText || roomsText === "N/A") {
+        return `<p class="dashboard-muted">No room details available.</p>`;
+    }
+
+    const rooms = roomsText
+        .split(" || ")
+        .map(room => room.trim())
+        .filter(room => room !== "");
+
+    return rooms.map(room => {
+        const parts = room.split(" | ").map(part => part.trim());
+
+        const roomName = parts[0] || "Room";
+        const paintType = parts[1] || "No paint type";
+        const color = parts[2] || "No color";
+        const size = parts[3] || "0 sq ft";
+        const details = parts[4] || "No room description";
+
+        return `
+            <div class="mini-room-card">
+                <div class="mini-room-top">
+                    <h4>${roomName}</h4>
+                    <span class="mini-room-size">${size}</span>
+                </div>
+
+                <div class="mini-room-meta">
+                    <span><strong>Paint:</strong> ${paintType}</span>
+                    <span><strong>Color:</strong> ${color}</span>
+                </div>
+
+                <p class="mini-room-description">${details}</p>
+            </div>
+        `;
+    }).join("");
+}
+
+function buildExpandedRow(q) {
+    return `
+        <tr class="quote-details-row">
+            <td colspan="5">
+                <div class="quote-details-panel">
+                    <div class="quote-details-grid">
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Appointment</span>
+                            <p>${q.appointment_date ?? "N/A"}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Quote Price</span>
+                            <p>${q.quote_price ? "$" + Number(q.quote_price).toFixed(2) : "N/A"}</p>
+                        </div>
+
+                        <div class="quote-detail-box">
+                            <span class="quote-detail-label">Created At</span>
+                            <p>${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</p>
+                        </div>
+                    </div>
+
+                    <div class="quote-description-panel">
+                        <span class="quote-detail-label">Project Description</span>
+                        <p>${q.description ?? "No description provided."}</p>
+                    </div>
+
+                    <div class="quote-rooms-panel">
+                        <span class="quote-detail-label">Room Details</span>
+                        <div class="room-details-grid" style="margin-top:12px;">
+                            ${buildRoomCards(q.rooms)}
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function collapseAllRows() {
+    document.querySelectorAll(".quote-row").forEach(row => {
+        row.classList.remove("active");
+    });
+
+    document.querySelectorAll(".quote-details-row").forEach(row => {
+        row.remove();
+    });
+}
+
+fetch("/user-data")
+.then(res => res.json())
+.then(data => {
+    document.getElementById("welcomeTitle").textContent = `Welcome, ${data.username}`;
+    document.getElementById("fullNameBox").textContent = data.fullName || "N/A";
+    document.getElementById("emailBox").textContent = data.email || "N/A";
+    document.getElementById("statusBox").textContent = data.project?.status || "No current status";
+    document.getElementById("summaryBox").textContent = data.project?.summary || "No summary available";
+
+    const quotes = data.quotes || [];
+    document.getElementById("totalQuotesBox").textContent = quotes.length;
+
+    const body = document.getElementById("myQuotesBody");
+
+    if (quotes.length === 0) {
+        document.getElementById("priceBox").textContent = "N/A";
+        document.getElementById("dateBox").textContent = "N/A";
+        document.getElementById("roomsCountBox").textContent = "0";
+        document.getElementById("descriptionBox").textContent = "No quotes submitted yet.";
+        document.getElementById("latestRoomsBox").innerHTML = `<p class="dashboard-muted">No room details available.</p>`;
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">No quotes submitted yet.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    const latestQuote = quotes[0];
+
+    document.getElementById("priceBox").textContent =
+        latestQuote.quote_price == null
+            ? "N/A"
+            : `$${Number(latestQuote.quote_price).toFixed(2)}`;
+
+    document.getElementById("dateBox").textContent =
+        latestQuote.appointment_date || "N/A";
+
+    document.getElementById("roomsCountBox").textContent =
+        countRooms(latestQuote.rooms);
+
+    document.getElementById("descriptionBox").textContent =
+        latestQuote.description || "No description provided.";
+
+    document.getElementById("latestRoomsBox").innerHTML =
+        buildRoomCards(latestQuote.rooms);
+
+    quotes.forEach(q => {
+        const row = document.createElement("tr");
+        row.className = "quote-row";
+        row.innerHTML = `
+            <td>#${q.id ?? "N/A"}</td>
+            <td class="date-cell">${q.appointment_date ?? "N/A"}</td>
+            <td class="price-cell">${q.quote_price ? "$" + Number(q.quote_price).toFixed(2) : "N/A"}</td>
+            <td>${countRooms(q.rooms)}</td>
+            <td class="date-cell">${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</td>
+        `;
+
+        row.addEventListener("click", () => {
+            const next = row.nextElementSibling;
+            const isOpen = row.classList.contains("active");
+
+            collapseAllRows();
+
+            if (!isOpen) {
+                row.classList.add("active");
+                row.insertAdjacentHTML("afterend", buildExpandedRow(q));
+            }
+        });
+
+        body.appendChild(row);
+    });
+})
+.catch(err => {
+    console.error(err);
+
+    document.getElementById("statusBox").textContent = "Error loading data";
+    document.getElementById("summaryBox").textContent = "Could not load project summary.";
+    document.getElementById("latestRoomsBox").innerHTML = `<p class="dashboard-muted">Could not load room details.</p>`;
+    document.getElementById("myQuotesBody").innerHTML = `
+        <tr>
+            <td colspan="5" class="table-empty">Error loading quotes.</td>
+        </tr>
+    `;
+});
+</script>
+
+</body>
+</html>

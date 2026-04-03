@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color:rgba(228, 228, 228, 0.877);">
+<head>
+<meta charset="UTF-8">
+<title>About Us - Lilly Brothers Painting</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<header>
+    <h1>Lilly Brothers Painting</h1>
+    <nav id="navBar" class="main-nav"></nav>
+</header>
+
+<main>
+<section class="about-page" style="margin-top: 50px;">
+
+    <div class="page-card">
+        <h2>About Lilly Brothers Painting</h2>
+        <p class="page-subtitle">Professional residential and commercial painting with care, detail, and reliability.</p>
+    </div>
+
+    <div class="about-layout">
+
+        <div class="page-card about-text-card">
+            <p>
+                Lilly Brothers Painting is a family-owned painting company proudly serving
+                Cincinnati and surrounding areas. With years of experience in residential
+                and commercial painting, our mission is to deliver high-quality work and
+                exceptional customer service.
+            </p>
+
+            <p>
+                Our team specializes in interior painting, exterior painting, drywall repair,
+                and detailed finishing work. We believe that attention to detail, reliability,
+                and professionalism are the keys to creating results that homeowners and
+                businesses can trust.
+            </p>
+
+            <p>
+                At Lilly Brothers Painting, we treat every home like it is our own. From small
+                rooms to full property transformations, our goal is to provide beautiful,
+                long-lasting finishes that make your space look its best.
+            </p>
+        </div>
+
+        <div class="page-card about-side-card">
+            <h3>Why Choose Us?</h3>
+            <ul class="about-list">
+                <li>High-quality interior and exterior painting</li>
+                <li>Professional and friendly service</li>
+                <li>Attention to detail and clean finishes</li>
+                <li>Reliable scheduling and communication</li>
+                <li>Trusted local painting company</li>
+            </ul>
+        </div>
+
+    </div>
+
+</section>
+</main>
+
+<footer>
+<p>© 2026 Lilly Brothers Painting</p>
+</footer>
+
+<script>
+fetch("/current-user")
+.then(res => res.json())
+.then(data => {
+    const nav = document.getElementById("navBar");
+
+    if (data.loggedIn) {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact">Contact</a>
+                    <a href="/about">About Us</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <span class="dropdown-user">Welcome, ${data.username}</span>
+                    <a href="/user">My Page</a>
+                    ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+                    <a href="/logout">Logout</a>
+            </div>
+        `;
+    } else {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <a href="/login">Login</a>
+                </div>
+            </div>
+        `;
+    }
+})
+.catch(err => console.log(err));
+
+function toggleMenu(event, menuId) {
+    event.stopPropagation();
+
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        if (menu.id !== menuId) {
+            menu.style.display = "none";
+        }
+    });
+
+    const menu = document.getElementById(menuId);
+
+    if (menu.style.display === "block") {
+        menu.style.display = "none";
+    } else {
+        menu.style.display = "block";
+    }
+}
+
+window.addEventListener("click", function() {
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        menu.style.display = "none";
+    });
+});
+</script>
+
+</body>
+</html>

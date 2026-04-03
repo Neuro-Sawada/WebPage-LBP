@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color:rgba(228, 228, 228, 0.877);">
+<head>
+<meta charset="UTF-8">
+<title>Get a Quote</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<header>
+    <h1>Lilly Brothers Painting</h1>
+    <nav id="navBar" class="main-nav"></nav>
+</header>
+
+<main>
+<section class="quote-section">
+
+<h2>Request a Free Quote</h2>
+
+<form class="quote-form" id="quoteForm" action="/quote" method="POST">
+
+    <div class="input-group">
+        <label>Appointment Date</label>
+        <input type="date" name="appointment_date" required>
+    </div>
+
+    <div class="input-group">
+        <label>Project Description</label>
+        <textarea name="description" rows="4" placeholder="Describe the full project if needed."></textarea>
+    </div>
+
+    <h3 style="margin-top:30px;">Rooms</h3>
+    <div id="roomsContainer"></div>
+
+    <button type="button" class="quote-button" onclick="addRoom()" style="margin-right:10px;">
+        + Add Room
+    </button>
+
+    <div class="quote-totals-box">
+        <div class="quote-total-item">
+            <span>Total Estimated Gallons</span>
+            <p id="gallonsTotal">0.00 gal</p>
+        </div>
+
+        <div class="quote-total-item">
+            <span>Estimated Total Price</span>
+            <p id="price">$0.00</p>
+        </div>
+    </div>
+
+    <input type="hidden" name="quote_price" id="quotePrice">
+
+    <button type="submit" class="quote-button">Submit Request</button>
+
+</form>
+
+</section>
+</main>
+
+<footer>
+<p>© 2026 Lilly Brothers Painting</p>
+</footer>
+
+<script>
+fetch("/current-user")
+.then(res => res.json())
+.then(data => {
+    const nav = document.getElementById("navBar");
+
+    if (data.loggedIn) {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About Us</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <span class="dropdown-user">Welcome, ${data.username}</span>
+                    <a href="/user">My Page</a>
+                    ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        `;
+    } else {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
+                <div id="aboutMenu" class="dropdown-content">
+                    <a href="/contact.html">Contact</a>
+                    <a href="/about.html">About</a>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <a href="/login">Login</a>
+                </div>
+            </div>
+        `;
+    }
+})
+.catch(err => console.log(err));
+
+function toggleMenu(event, menuId) {
+    event.stopPropagation();
+
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        if (menu.id !== menuId) {
+            menu.style.display = "none";
+        }
+    });
+
+    const menu = document.getElementById(menuId);
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+window.addEventListener("click", function() {
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        menu.style.display = "none";
+    });
+});
+
+let roomIndex = 0;
+
+/*
+Material calculator:
+- Uses wall area instead of floor size
+- Subtracts doors and windows
+- Adds a waste/touch-up factor
+- Stores paintable area into room_size[] so server.js can keep working
+*/
+
+const paintData = {
+    "Flat":       { pricePerGallon: 29.98, coverage: 375 },
+    "Eggshell":   { pricePerGallon: 32.98, coverage: 375 },
+    "Satin":      { pricePerGallon: 35.98, coverage: 375 },
+    "Semi-Gloss": { pricePerGallon: 38.98, coverage: 375 },
+    "Hi-Gloss":   { pricePerGallon: 39.98, coverage: 375 }
+};
+
+const DOOR_AREA = 21;
+const WINDOW_AREA = 15;
+const WASTE_FACTOR = 1.10;
+
+function addRoom() {
+    roomIndex++;
+
+    const container = document.getElementById("roomsContainer");
+
+    const roomBlock = document.createElement("div");
+    roomBlock.className = "room-block";
+    roomBlock.setAttribute("data-room-index", roomIndex);
+
+    roomBlock.innerHTML = `
+        <div class="room-card room-card-modern room-card-premium">
+            <div class="room-card-accent"></div>
+
+            <div class="room-card-header room-card-header-compact">
+                <div>
+                    <h4>Room ${roomIndex}</h4>
+                    <p class="room-card-subtitle">Dimensions, paint finish, and color selection.</p>
+                </div>
+                <button type="button" class="remove-room-btn remove-room-btn-small" onclick="removeRoom(${roomIndex})">
+                    Remove
+                </button>
+            </div>
+
+            <div class="room-form-grid">
+                <div class="input-group">
+                    <label>Room Name</label>
+                    <input type="text" name="room_name[]" placeholder="Living Room" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Paint Type</label>
+                    <select name="paint_type[]" class="paint-type" required>
+                        <option value="Flat">Flat</option>
+                        <option value="Eggshell">Eggshell</option>
+                        <option value="Satin">Satin</option>
+                        <option value="Semi-Gloss">Semi-Gloss</option>
+                        <option value="Hi-Gloss">Hi-Gloss</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Room Length (ft)</label>
+                    <input type="number" class="room-length" min="1" step="0.1" value="12" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Room Width (ft)</label>
+                    <input type="number" class="room-width" min="1" step="0.1" value="10" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Wall Height (ft)</label>
+                    <input type="number" class="room-height" min="6" step="0.1" value="8" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Coats</label>
+                    <select class="room-coats">
+                        <option value="1">1 coat</option>
+                        <option value="2" selected>2 coats</option>
+                        <option value="3">3 coats</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Doors</label>
+                    <input type="number" class="room-doors" min="0" step="1" value="1">
+                </div>
+
+                <div class="input-group">
+                    <label>Windows</label>
+                    <input type="number" class="room-windows" min="0" step="1" value="1">
+                </div>
+
+                <div class="input-group">
+                    <label>House Color</label>
+                    <select name="room_color[]" class="room-color-select" required>
+                        <option value="#F4F1EA" data-color-name="Warm White">Warm White</option>
+                        <option value="#F6F4ED" data-color-name="Swiss Coffee">Swiss Coffee</option>
+                        <option value="#EAE6DE" data-color-name="Soft Beige">Soft Beige</option>
+                        <option value="#D8D2C8" data-color-name="Light Greige">Light Greige</option>
+                        <option value="#CFC8BE" data-color-name="Drift of Mist">Drift of Mist</option>
+                        <option value="#D9DDD6" data-color-name="Sage Mist">Sage Mist</option>
+                        <option value="#C9D4CC" data-color-name="Sea Salt">Sea Salt</option>
+                        <option value="#C9D3D6" data-color-name="Soft Blue Gray">Soft Blue Gray</option>
+                        <option value="#B8C7BC" data-color-name="Smoky Jade">Smoky Jade</option>
+                        <option value="#B9AA98" data-color-name="Warm Taupe">Warm Taupe</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Selected Color</label>
+                    <div class="color-preview-box">
+                        <span class="color-swatch" style="background:#F4F1EA;"></span>
+                        <div class="color-preview-text">
+                            <strong class="color-name">Warm White</strong>
+                            <span class="color-hex">#F4F1EA</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group input-group-wide">
+                    <label>Room Description</label>
+                    <textarea name="room_description[]" rows="3" placeholder="Describe this room only."></textarea>
+                </div>
+            </div>
+
+            <input type="hidden" name="room_size[]" class="room-size-hidden" value="0">
+
+            <div class="room-metrics-grid room-metrics-modern">
+                <div class="metric-box">
+                    <span>Paintable Area</span>
+                    <p class="paintable-area">0 sq ft</p>
+                </div>
+
+                <div class="metric-box">
+                    <span>Estimated Gallons</span>
+                    <p class="room-gallons">0.00 gal</p>
+                </div>
+
+                <div class="metric-box metric-box-highlight">
+                    <span>Material Price</span>
+                    <p class="room-price">$0.00</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(roomBlock);
+
+    roomBlock.querySelectorAll("input, select, textarea").forEach(el => {
+        el.addEventListener("input", () => {
+            updateColorPreview(roomBlock);
+            calculateTotal();
+        });
+        el.addEventListener("change", () => {
+            updateColorPreview(roomBlock);
+            calculateTotal();
+        });
+    });
+
+    updateColorPreview(roomBlock);
+    calculateTotal();
+}
+
+function removeRoom(index) {
+    const room = document.querySelector(`[data-room-index="${index}"]`);
+    if (room) {
+        room.remove();
+        calculateTotal();
+    }
+}
+
+function updateColorPreview(block) {
+    const select = block.querySelector(".room-color-select");
+    const swatch = block.querySelector(".color-swatch");
+    const nameEl = block.querySelector(".color-name");
+    const hexEl = block.querySelector(".color-hex");
+
+    if (!select || !swatch || !nameEl || !hexEl) return;
+
+    const selectedOption = select.options[select.selectedIndex];
+    const hex = selectedOption.value;
+    const name = selectedOption.dataset.colorName || selectedOption.textContent;
+
+    swatch.style.background = hex;
+    nameEl.textContent = name;
+    hexEl.textContent = hex;
+}
+
+function roundUpToQuarter(value) {
+    return Math.ceil(value * 4) / 4;
+}
+
+function calculateRoom(block) {
+    const paintType = block.querySelector(".paint-type").value;
+    const length = parseFloat(block.querySelector(".room-length").value) || 0;
+    const width = parseFloat(block.querySelector(".room-width").value) || 0;
+    const height = parseFloat(block.querySelector(".room-height").value) || 0;
+    const doors = parseInt(block.querySelector(".room-doors").value) || 0;
+    const windows = parseInt(block.querySelector(".room-windows").value) || 0;
+    const coats = parseInt(block.querySelector(".room-coats").value) || 1;
+
+    const config = paintData[paintType] || paintData["Flat"];
+
+    const wallArea = 2 * (length + width) * height;
+    const openingArea = (doors * DOOR_AREA) + (windows * WINDOW_AREA);
+    const paintableArea = Math.max(wallArea - openingArea, 0);
+
+    const totalCoatedArea = paintableArea * coats;
+    const rawGallons = (totalCoatedArea / config.coverage) * WASTE_FACTOR;
+    const estimatedGallons = roundUpToQuarter(rawGallons);
+    const roomPrice = estimatedGallons * config.pricePerGallon;
+
+    block.querySelector(".paintable-area").textContent = `${paintableArea.toFixed(0)} sq ft`;
+    block.querySelector(".room-gallons").textContent = `${estimatedGallons.toFixed(2)} gal`;
+    block.querySelector(".room-price").textContent = `$${roomPrice.toFixed(2)}`;
+    block.querySelector(".room-size-hidden").value = paintableArea.toFixed(0);
+
+    return {
+        gallons: estimatedGallons,
+        price: roomPrice
+    };
+}
+
+function calculateTotal() {
+    const roomBlocks = document.querySelectorAll(".room-block");
+
+    let totalGallons = 0;
+    let totalPrice = 0;
+
+    roomBlocks.forEach(block => {
+        const room = calculateRoom(block);
+        totalGallons += room.gallons;
+        totalPrice += room.price;
+    });
+
+    document.getElementById("gallonsTotal").textContent = `${totalGallons.toFixed(2)} gal`;
+    document.getElementById("price").textContent = `$${totalPrice.toFixed(2)}`;
+    document.getElementById("quotePrice").value = totalPrice.toFixed(2);
+}
+
+addRoom();
+</script>
+
+</body>
+</html>
