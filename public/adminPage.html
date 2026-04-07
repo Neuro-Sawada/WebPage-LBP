@@ -46,7 +46,7 @@
     <div class="dashboard-grid dashboard-grid-3">
         <div class="dashboard-card">
             <div class="card-header-row">
-                <h3>Newest Request</h3>
+                <h3>Next Appointment</h3>
             </div>
             <p id="latestCustomer" class="dashboard-text">Loading...</p>
             <p id="latestDate" class="dashboard-muted">Loading...</p>
@@ -54,14 +54,14 @@
 
         <div class="dashboard-card">
             <div class="card-header-row">
-                <h3>Latest Quote Price</h3>
+                <h3>Next Quote Price</h3>
             </div>
             <p id="latestPrice" class="admin-highlight-number">$0.00</p>
         </div>
 
         <div class="dashboard-card">
             <div class="card-header-row">
-                <h3>Latest Project Description</h3>
+                <h3>Next Project Description</h3>
             </div>
             <p id="latestDescription" class="dashboard-text">Loading...</p>
         </div>
@@ -84,6 +84,7 @@
                         <th>Appointment</th>
                         <th>Quote Price</th>
                         <th>Rooms</th>
+                        <th>Status</th>
                         <th>Created At</th>
                     </tr>
                 </thead>
@@ -183,6 +184,20 @@ function formatMoney(value) {
     return `$${num.toFixed(2)}`;
 }
 
+function formatDateOnly(value) {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+}
+
+function formatDateTime(value) {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString();
+}
+
 function buildRoomCards(roomsText) {
     if (!roomsText || roomsText === "N/A") {
         return `<p class="dashboard-muted">No room details available.</p>`;
@@ -220,10 +235,22 @@ function buildRoomCards(roomsText) {
     }).join("");
 }
 
+function buildStatusBadge(status) {
+    const safeStatus = status || "Pending";
+    let className = "status-default";
+
+    if (safeStatus === "Pending") className = "status-pending";
+    if (safeStatus === "Scheduled") className = "status-scheduled";
+    if (safeStatus === "In Progress") className = "status-inprogress";
+    if (safeStatus === "Completed") className = "status-completed";
+
+    return `<span class="status-badge ${className}">${safeStatus}</span>`;
+}
+
 function buildExpandedRow(q) {
     return `
         <tr class="quote-details-row">
-            <td colspan="6">
+            <td colspan="7">
                 <div class="quote-details-panel">
                     <div class="quote-details-grid">
                         <div class="quote-detail-box">
@@ -243,7 +270,7 @@ function buildExpandedRow(q) {
 
                         <div class="quote-detail-box">
                             <span class="quote-detail-label">Appointment</span>
-                            <p>${q.appointment_date ?? "N/A"}</p>
+                            <p>${formatDateOnly(q.appointment_date)}</p>
                         </div>
 
                         <div class="quote-detail-box">
@@ -252,8 +279,8 @@ function buildExpandedRow(q) {
                         </div>
 
                         <div class="quote-detail-box">
-                            <span class="quote-detail-label">Created At</span>
-                            <p>${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</p>
+                            <span class="quote-detail-label">Current Status</span>
+                            <p>${q.current_status || "Pending"}</p>
                         </div>
                     </div>
 
@@ -266,6 +293,10 @@ function buildExpandedRow(q) {
                         <span class="quote-detail-label">Room Details</span>
                         <div class="room-details-grid" style="margin-top:12px;">
                             ${buildRoomCards(q.rooms)}
+                        </div>
+
+                        <div style="margin-top:16px;">
+                            <a href="/admin/worksheet/${q.id}" class="hero-button" style="margin-top:0;">Open Quote Worksheet</a>
                         </div>
                     </div>
                 </div>
@@ -317,7 +348,7 @@ fetch("/quotes")
             `${latest.first_name ?? ""} ${latest.last_name ?? ""}`.trim() || "N/A";
 
         document.getElementById("latestDate").textContent =
-            latest.appointment_date ? `Appointment: ${latest.appointment_date}` : "Appointment: N/A";
+            latest.appointment_date ? `Appointment: ${formatDateOnly(latest.appointment_date)}` : "Appointment: N/A";
 
         document.getElementById("latestPrice").textContent =
             latest.quote_price ? formatMoney(latest.quote_price) : "N/A";
@@ -334,7 +365,7 @@ fetch("/quotes")
     if (data.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="6" class="table-empty">No quotes submitted yet.</td>
+                <td colspan="7" class="table-empty">No quotes submitted yet.</td>
             </tr>
         `;
         return;
@@ -347,15 +378,27 @@ fetch("/quotes")
         row.innerHTML = `
             <td>#${q.id ?? "N/A"}</td>
             <td>${q.first_name ?? ""} ${q.last_name ?? ""}</td>
-            <td class="date-cell">${q.appointment_date ?? "N/A"}</td>
+            <td class="date-cell">${formatDateOnly(q.appointment_date)}</td>
             <td class="price-cell">${q.quote_price ? formatMoney(q.quote_price) : "N/A"}</td>
             <td>${countRooms(q.rooms)}</td>
-            <td class="date-cell">${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</td>
+            <td>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    ${buildStatusBadge(q.current_status)}
+                    <select class="status-select" data-user-id="${q.user_id}">
+                        <option value="Pending" ${q.current_status === "Pending" ? "selected" : ""}>Pending</option>
+                        <option value="Scheduled" ${q.current_status === "Scheduled" ? "selected" : ""}>Scheduled</option>
+                        <option value="In Progress" ${q.current_status === "In Progress" ? "selected" : ""}>In Progress</option>
+                        <option value="Completed" ${q.current_status === "Completed" ? "selected" : ""}>Completed</option>
+                    </select>
+                </div>
+            </td>
+            <td class="date-cell">${formatDateTime(q.created_at)}</td>
         `;
 
-        row.addEventListener("click", () => {
-            const isOpen = row.classList.contains("active");
+        row.addEventListener("click", (event) => {
+            if (event.target.closest(".status-select")) return;
 
+            const isOpen = row.classList.contains("active");
             collapseAllRows();
 
             if (!isOpen) {
@@ -365,13 +408,43 @@ fetch("/quotes")
         });
 
         body.appendChild(row);
+
+        const statusSelect = row.querySelector(".status-select");
+        statusSelect.addEventListener("change", async (event) => {
+            const userId = event.target.dataset.userId;
+            const newStatus = event.target.value;
+
+            try {
+                const res = await fetch("/admin/update-status", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        status: newStatus
+                    })
+                });
+
+                const result = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(result.error || "Could not update status");
+                }
+
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+                alert("Error updating status");
+            }
+        });
     });
 })
 .catch(err => {
     console.error(err);
     document.getElementById("quotesBody").innerHTML = `
         <tr>
-            <td colspan="6" class="table-empty">Error loading quotes.</td>
+            <td colspan="7" class="table-empty">Error loading quotes.</td>
         </tr>
     `;
 });

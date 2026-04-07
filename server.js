@@ -2,9 +2,32 @@ const pool = require("./db");
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
+const bcrypt = require("bcrypt");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Login limiter: 5 attempts every 10 minutes
+const loginLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 5,
+    message: "Too many login attempts. Try again later."
+});
+
+// Signup limiter: 5 per hour
+const signupLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: "Too many accounts created. Try again later."
+});
+
+// Quote limiter: 10 per hour
+const quoteLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: "Too many quote requests. Try again later."
+});
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -65,7 +88,7 @@ app.get("/sign_up", (req, res) => {
     res.sendFile(path.join(__dirname, "public/sign_up.html"));
 });
 
-app.post("/signup", async (req, res) => {
+app.post("/signup", signupLimiter, async (req, res) => {
     const { first_name, last_name, email, phone_number, password } = req.body;
 
     try {
@@ -78,10 +101,12 @@ app.post("/signup", async (req, res) => {
             return res.send("User already exists");
         }
 
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         await pool.query(
             `INSERT INTO users (first_name, last_name, email, phone_number, password)
             VALUES (?, ?, ?, ?, ?)`,
-                         [first_name, last_name, email, phone_number, password]
+                         [first_name, last_name, email, phone_number, hashedPassword]
         );
 
         res.redirect("/login");
@@ -91,13 +116,13 @@ app.post("/signup", async (req, res) => {
     }
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", loginLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     try {
         const [rows] = await pool.query(
-            "SELECT * FROM users WHERE email = ? AND password = ?",
-            [email, password]
+            "SELECT * FROM users WHERE email = ?",
+            [email]
         );
 
         if (rows.length === 0) {
@@ -105,6 +130,11 @@ app.post("/login", async (req, res) => {
         }
 
         const user = rows[0];
+        const passwordMatch = await bcrypt.compare(password, user.password);
+
+        if (!passwordMatch) {
+            return res.send("Invalid credentials");
+        }
 
         req.session.loggedIn = true;
         req.session.username = user.first_name;
@@ -149,6 +179,30 @@ app.get("/current-user", (req, res) => {
 app.get("/user", requireLogin, (req, res) => {
     res.sendFile(path.join(__dirname, "public/user.html"));
 });
+
+function applyStatusStyle(status) {
+    const box = document.getElementById("statusBox");
+    box.textContent = status || "No current status";
+
+    box.className = "status-badge";
+
+    switch (status) {
+        case "Pending":
+            box.classList.add("status-pending");
+            break;
+        case "Scheduled":
+            box.classList.add("status-scheduled");
+            break;
+        case "In Progress":
+            box.classList.add("status-inprogress");
+            break;
+        case "Completed":
+            box.classList.add("status-completed");
+            break;
+        default:
+            box.classList.add("status-default");
+    }
+}
 
 app.get("/user-data", requireLogin, async (req, res) => {
     try {
@@ -222,7 +276,7 @@ app.get("/quote", requireLogin, (req, res) => {
     res.sendFile(path.join(__dirname, "public/quote.html"));
 });
 
-app.post("/quote", requireLogin, async (req, res) => {
+app.post("/quote", requireLogin, quoteLimiter, async (req, res) => {
     const {
         appointment_date,
         description,
@@ -287,7 +341,7 @@ app.post("/quote", requireLogin, async (req, res) => {
             VALUES (?, ?, ?, ?, ?)`,
                          [
                              req.session.userId,
-                         "Quote Submitted",
+                         "Pending",
                          quote_price || null,
                          appointment_date || null,
                          summary
@@ -298,6 +352,71 @@ app.post("/quote", requireLogin, async (req, res) => {
     } catch (err) {
         console.error("Quote insert error:", err);
         res.status(500).send("Database error");
+    }
+});
+
+app.post("/admin/update-status", requireAdmin, async (req, res) => {
+    const { user_id, status } = req.body;
+
+    const allowedStatuses = ["Pending", "Scheduled", "In Progress", "Completed"];
+
+    if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+    }
+
+    try {
+        const [latestQuoteRows] = await pool.query(
+            `SELECT
+            q.user_id,
+            q.appointment_date,
+            q.quote_price,
+            GROUP_CONCAT(
+                CONCAT(
+                    qr.room_name,
+                    ' | ',
+                    COALESCE(qr.paint_type, 'No paint type'),
+                       ' | ',
+                       COALESCE(qr.room_color, 'No color'),
+                       ' | ',
+                       COALESCE(qr.room_size, 0),
+                       ' sq ft',
+                       ' | ',
+                       COALESCE(qr.room_description, 'No room description')
+                )
+                ORDER BY qr.id
+                SEPARATOR ' || '
+            ) AS rooms
+            FROM quotes q
+            LEFT JOIN quote_rooms qr ON q.id = qr.quote_id
+            WHERE q.user_id = ?
+            GROUP BY q.id, q.user_id, q.appointment_date, q.quote_price, q.created_at
+            ORDER BY q.created_at DESC
+            LIMIT 1`,
+            [user_id]
+        );
+
+        if (latestQuoteRows.length === 0) {
+            return res.status(404).json({ error: "No quote found for this user" });
+        }
+
+        const latestQuote = latestQuoteRows[0];
+
+        await pool.query(
+            `INSERT INTO project_status (user_id, status, quote_price, appointment_date, summary)
+            VALUES (?, ?, ?, ?, ?)`,
+                         [
+                             user_id,
+                         status,
+                         latestQuote.quote_price || null,
+                         latestQuote.appointment_date || null,
+                         latestQuote.rooms || "No room details"
+                         ]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Update status error:", err);
+        res.status(500).json({ error: "Database error" });
     }
 });
 
@@ -319,6 +438,7 @@ app.get("/quotes", requireAdmin, async (req, res) => {
             u.last_name,
             u.email,
             u.phone_number,
+            ps.status AS current_status,
             GROUP_CONCAT(
                 CONCAT(
                     qr.room_name,
@@ -338,6 +458,14 @@ app.get("/quotes", requireAdmin, async (req, res) => {
             FROM quotes q
             JOIN users u ON q.user_id = u.id
             LEFT JOIN quote_rooms qr ON q.id = qr.quote_id
+            LEFT JOIN project_status ps
+            ON ps.id = (
+                SELECT ps2.id
+                FROM project_status ps2
+                WHERE ps2.user_id = q.user_id
+                ORDER BY ps2.updated_at DESC, ps2.id DESC
+                LIMIT 1
+            )
             GROUP BY
             q.id,
             q.user_id,
@@ -348,13 +476,68 @@ app.get("/quotes", requireAdmin, async (req, res) => {
             u.first_name,
             u.last_name,
             u.email,
-            u.phone_number
-            ORDER BY q.created_at DESC`
+            u.phone_number,
+            ps.status
+            ORDER BY q.appointment_date ASC, q.created_at DESC`
         );
 
         res.json(rows);
     } catch (err) {
         console.error("Quotes fetch error:", err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+app.get("/admin/worksheet/:quoteId", requireAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, "public/adminWorksheet.html"));
+});
+
+app.get("/admin/worksheet-data/:quoteId", requireAdmin, async (req, res) => {
+    const { quoteId } = req.params;
+
+    try {
+        const [quoteRows] = await pool.query(
+            `SELECT
+            q.id,
+            q.user_id,
+            q.appointment_date,
+            q.description,
+            q.quote_price,
+            q.created_at,
+            u.first_name,
+            u.last_name,
+            u.email,
+            u.phone_number
+            FROM quotes q
+            JOIN users u ON q.user_id = u.id
+            WHERE q.id = ?`,
+            [quoteId]
+        );
+
+        if (quoteRows.length === 0) {
+            return res.status(404).json({ error: "Quote not found" });
+        }
+
+        const [roomRows] = await pool.query(
+            `SELECT
+            id,
+            room_name,
+            paint_type,
+            room_color,
+            room_size,
+            room_description
+            FROM quote_rooms
+            WHERE quote_id = ?
+            ORDER BY id ASC`,
+            [quoteId]
+        );
+
+        res.json({
+            quote: quoteRows[0],
+            rooms: roomRows
+        });
+    } catch (err) {
+        console.error("Worksheet data error:", err);
         res.status(500).json({ error: "Database error" });
     }
 });

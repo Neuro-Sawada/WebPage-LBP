@@ -69,7 +69,7 @@
             <div class="card-header-row">
                 <h3>Current Status</h3>
             </div>
-            <p id="statusBox" class="dashboard-text">Loading...</p>
+            <p id="statusBox" class="status-badge">Loading...</p>
             <p id="summaryBox" class="dashboard-muted">Loading...</p>
         </div>
     </div>
@@ -275,7 +275,29 @@ function collapseAllRows() {
         row.remove();
     });
 }
+function applyStatusStyle(status) {
+    const box = document.getElementById("statusBox");
+    box.textContent = status || "No current status";
 
+    box.className = "status-badge";
+
+    switch (status) {
+        case "Pending":
+            box.classList.add("status-pending");
+            break;
+        case "Scheduled":
+            box.classList.add("status-scheduled");
+            break;
+        case "In Progress":
+            box.classList.add("status-inprogress");
+            break;
+        case "Completed":
+            box.classList.add("status-completed");
+            break;
+        default:
+            box.classList.add("status-default");
+    }
+}
 fetch("/user-data")
 .then(res => res.json())
 .then(data => {

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color:rgba(228, 228, 228, 0.877);">
+<head>
+    <meta charset="UTF-8">
+    <title>Quote Worksheet - Lilly Brothers Painting</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<header>
+    <h1>Lilly Brothers Painting</h1>
+    <nav id="navBar" class="main-nav"></nav>
+</header>
+
+<main>
+<section class="dashboard-section">
+    <div class="dashboard-header">
+        <div>
+            <h2>Admin Quote Worksheet</h2>
+            <p class="dashboard-subtitle">Review the original quote, adjust costs, add repairs, and export a PDF.</p>
+        </div>
+        <a href="/admin" class="hero-button dashboard-cta">Back to Admin</a>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-2">
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Customer</h3>
+            </div>
+            <p id="customerName" class="dashboard-text">Loading...</p>
+            <p id="customerEmail" class="dashboard-muted">Loading...</p>
+            <p id="customerPhone" class="dashboard-muted">Loading...</p>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header-row">
+                <h3>Project</h3>
+            </div>
+            <p id="projectAppointment" class="dashboard-text">Loading...</p>
+            <p id="projectDescription" class="dashboard-muted">Loading...</p>
+        </div>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-header-row">
+            <h3>Quote Worksheet</h3>
+        </div>
+
+        <div class="sheet-toolbar">
+            <div class="sheet-input-group">
+                <label>Hourly Rate</label>
+                <input type="number" id="hourlyRate" min="0" step="0.01" value="65">
+            </div>
+
+            <div class="sheet-input-group">
+                <label>Labor Hours</label>
+                <input type="number" id="laborHours" min="0" step="0.25" value="0">
+            </div>
+
+            <div class="sheet-input-group">
+                <label>Material Cost</label>
+                <input type="number" id="materialCost" min="0" step="0.01" value="0">
+            </div>
+        </div>
+
+        <div class="worksheet-table-wrap">
+            <table class="worksheet-table" id="roomsTable">
+                <thead>
+                    <tr>
+                        <th>Room</th>
+                        <th>Paint Type</th>
+                        <th>Color</th>
+                        <th>Size</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody id="roomsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-header-row">
+            <h3>Repairs / Extras</h3>
+            <button type="button" class="quote-button" id="addRepairBtn">+ Add Row</button>
+        </div>
+
+        <div class="worksheet-table-wrap">
+            <table class="worksheet-table" id="repairsTable">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Line Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="repairsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-4">
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Labor Total</span>
+            <h3 id="laborTotal">$0.00</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Material Cost</span>
+            <h3 id="materialTotal">$0.00</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Repairs Total</span>
+            <h3 id="repairsTotal">$0.00</h3>
+        </div>
+
+        <div class="dashboard-card stat-card">
+            <span class="card-label">Grand Total</span>
+            <h3 id="grandTotal">$0.00</h3>
+        </div>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-header-row">
+            <h3>Notes</h3>
+        </div>
+        <textarea id="worksheetNotes" class="worksheet-notes" rows="5" placeholder="Optional notes for the customer or internal use."></textarea>
+    </div>
+
+    <div class="dashboard-card">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button type="button" class="quote-button" id="downloadPdfBtn">Download PDF</button>
+        </div>
+    </div>
+</section>
+</main>
+
+<footer>
+    <p>© 2026 Lilly Brothers Painting</p>
+</footer>
+
+<script>
+const quoteId = window.location.pathname.split("/").pop();
+let quoteData = null;
+let roomData = [];
+
+fetch("/current-user")
+.then(res => res.json())
+.then(data => {
+    const nav = document.getElementById("navBar");
+
+    if (data.loggedIn) {
+        nav.innerHTML = `
+            <a href="/">Home</a>
+            <a href="/quote">Get Quote</a>
+
+            <div class="dropdown">
+                <button class="dropbtn" onclick="toggleMenu(event, 'accountMenu')">Account ▾</button>
+                <div id="accountMenu" class="dropdown-content">
+                    <span class="dropdown-user">Welcome, ${data.username}</span>
+                    <a href="/user">My Page</a>
+                    ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        `;
+    }
+})
+.catch(err => console.log(err));
+
+function toggleMenu(event, menuId) {
+    event.stopPropagation();
+    const allMenus = document.querySelectorAll(".dropdown-content");
+    allMenus.forEach(menu => {
+        if (menu.id !== menuId) menu.style.display = "none";
+    });
+
+    const menu = document.getElementById(menuId);
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+window.addEventListener("click", function() {
+    document.querySelectorAll(".dropdown-content").forEach(menu => {
+        menu.style.display = "none";
+    });
+});
+
+function money(value) {
+    return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function formatDateOnly(value) {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+}
+
+function addRepairRow(item = "", qty = 1, unitPrice = 0) {
+    const tbody = document.getElementById("repairsTableBody");
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+        <td><input type="text" class="repair-item" value="${item}" placeholder="Drywall repair"></td>
+        <td><input type="number" class="repair-qty" min="0" step="0.01" value="${qty}"></td>
+        <td><input type="number" class="repair-unit-price" min="0" step="0.01" value="${unitPrice}"></td>
+        <td class="repair-line-total">$0.00</td>
+        <td><button type="button" class="worksheet-remove-btn">Remove</button></td>
+    `;
+
+    tr.querySelectorAll("input").forEach(input => {
+        input.addEventListener("input", calculateTotals);
+    });
+
+    tr.querySelector(".worksheet-remove-btn").addEventListener("click", () => {
+        tr.remove();
+        calculateTotals();
+    });
+
+    tbody.appendChild(tr);
+    calculateTotals();
+}
+
+function getRepairs() {
+    return [...document.querySelectorAll("#repairsTableBody tr")].map(row => {
+        const item = row.querySelector(".repair-item").value || "";
+        const qty = Number(row.querySelector(".repair-qty").value || 0);
+        const unitPrice = Number(row.querySelector(".repair-unit-price").value || 0);
+        const lineTotal = qty * unitPrice;
+
+        row.querySelector(".repair-line-total").textContent = money(lineTotal);
+
+        return { item, qty, unitPrice, lineTotal };
+    });
+}
+
+function calculateTotals() {
+    const hourlyRate = Number(document.getElementById("hourlyRate").value || 0);
+    const laborHours = Number(document.getElementById("laborHours").value || 0);
+    const materialCost = Number(document.getElementById("materialCost").value || 0);
+
+    const laborTotal = hourlyRate * laborHours;
+    const repairs = getRepairs();
+    const repairsTotal = repairs.reduce((sum, row) => sum + row.lineTotal, 0);
+    const grandTotal = laborTotal + materialCost + repairsTotal;
+
+    document.getElementById("laborTotal").textContent = money(laborTotal);
+    document.getElementById("materialTotal").textContent = money(materialCost);
+    document.getElementById("repairsTotal").textContent = money(repairsTotal);
+    document.getElementById("grandTotal").textContent = money(grandTotal);
+}
+
+function renderRooms() {
+    const tbody = document.getElementById("roomsTableBody");
+    tbody.innerHTML = "";
+
+    roomData.forEach(room => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${room.room_name || "N/A"}</td>
+            <td>${room.paint_type || "N/A"}</td>
+            <td>${room.room_color || "N/A"}</td>
+            <td>${room.room_size ? room.room_size + " sq ft" : "N/A"}</td>
+            <td>${room.room_description || "N/A"}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function loadWorksheet() {
+    const res = await fetch(`/admin/worksheet-data/${quoteId}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+        throw new Error(data.error || "Could not load worksheet data");
+    }
+
+    quoteData = data.quote;
+    roomData = data.rooms || [];
+
+    document.getElementById("customerName").textContent =
+        `${quoteData.first_name || ""} ${quoteData.last_name || ""}`.trim() || "N/A";
+    document.getElementById("customerEmail").textContent = quoteData.email || "N/A";
+    document.getElementById("customerPhone").textContent = quoteData.phone_number || "N/A";
+    document.getElementById("projectAppointment").textContent =
+        `Appointment: ${formatDateOnly(quoteData.appointment_date)}`;
+    document.getElementById("projectDescription").textContent =
+        quoteData.description || "No description provided.";
+
+    document.getElementById("materialCost").value = Number(quoteData.quote_price || 0).toFixed(2);
+
+    renderRooms();
+    addRepairRow();
+    calculateTotals();
+}
+
+function downloadPdf() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const hourlyRate = Number(document.getElementById("hourlyRate").value || 0);
+    const laborHours = Number(document.getElementById("laborHours").value || 0);
+    const materialCost = Number(document.getElementById("materialCost").value || 0);
+    const repairs = getRepairs();
+    const notes = document.getElementById("worksheetNotes").value || "";
+
+    const laborTotal = hourlyRate * laborHours;
+    const repairsTotal = repairs.reduce((sum, row) => sum + row.lineTotal, 0);
+    const grandTotal = laborTotal + materialCost + repairsTotal;
+
+    doc.setFontSize(18);
+    doc.text("Lilly Brothers Painting - Quote Worksheet", 14, 18);
+
+    doc.setFontSize(11);
+    doc.text(`Customer: ${quoteData.first_name} ${quoteData.last_name}`, 14, 30);
+    doc.text(`Email: ${quoteData.email || "N/A"}`, 14, 37);
+    doc.text(`Phone: ${quoteData.phone_number || "N/A"}`, 14, 44);
+    doc.text(`Appointment: ${formatDateOnly(quoteData.appointment_date)}`, 14, 51);
+
+    doc.text("Project Description:", 14, 62);
+    doc.text(doc.splitTextToSize(quoteData.description || "No description provided.", 180), 14, 69);
+
+    doc.autoTable({
+        startY: 88,
+        head: [["Room", "Paint Type", "Color", "Size", "Description"]],
+        body: roomData.map(room => [
+            room.room_name || "N/A",
+            room.paint_type || "N/A",
+            room.room_color || "N/A",
+            room.room_size ? room.room_size + " sq ft" : "N/A",
+            room.room_description || "N/A"
+        ]),
+        styles: { fontSize: 9 }
+    });
+
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [["Repair / Extra", "Qty", "Unit Price", "Line Total"]],
+        body: repairs.length
+            ? repairs.map(row => [
+                row.item || "N/A",
+                row.qty,
+                money(row.unitPrice),
+                money(row.lineTotal)
+            ])
+            : [["No repairs added", "", "", ""]],
+        styles: { fontSize: 9 }
+    });
+
+    let y = doc.lastAutoTable.finalY + 12;
+
+    doc.text(`Hourly Rate: ${money(hourlyRate)}`, 14, y);
+    y += 7;
+    doc.text(`Labor Hours: ${laborHours.toFixed(2)}`, 14, y);
+    y += 7;
+    doc.text(`Labor Total: ${money(laborTotal)}`, 14, y);
+    y += 7;
+    doc.text(`Material Cost: ${money(materialCost)}`, 14, y);
+    y += 7;
+    doc.text(`Repairs Total: ${money(repairsTotal)}`, 14, y);
+    y += 7;
+    doc.setFontSize(13);
+    doc.text(`Grand Total: ${money(grandTotal)}`, 14, y);
+    y += 12;
+
+    doc.setFontSize(11);
+    doc.text("Notes:", 14, y);
+    doc.text(doc.splitTextToSize(notes || "None", 180), 14, y + 7);
+
+    doc.save(`quote-worksheet-${quoteId}.pdf`);
+}
+
+document.getElementById("addRepairBtn").addEventListener("click", () => addRepairRow());
+document.getElementById("hourlyRate").addEventListener("input", calculateTotals);
+document.getElementById("laborHours").addEventListener("input", calculateTotals);
+document.getElementById("materialCost").addEventListener("input", calculateTotals);
+document.getElementById("downloadPdfBtn").addEventListener("click", downloadPdf);
+
+loadWorksheet().catch(err => {
+    console.error(err);
+    alert("Could not load worksheet");
+});
+</script>
+
+</body>
+</html>
