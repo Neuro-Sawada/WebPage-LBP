@@ -69,7 +69,7 @@
             <div class="card-header-row">
                 <h3>Current Status</h3>
             </div>
-            <p id="statusBox" class="status-badge">Loading...</p>
+            <p id="statusBox" class="dashboard-text">Loading...</p>
             <p id="summaryBox" class="dashboard-muted">Loading...</p>
         </div>
     </div>
@@ -190,6 +190,13 @@ function countRooms(roomsText) {
     return roomsText.split(" || ").filter(item => item.trim() !== "").length;
 }
 
+function formatDateOnly(value) {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+}
+
 function buildRoomCards(roomsText) {
     if (!roomsText || roomsText === "N/A") {
         return `<p class="dashboard-muted">No room details available.</p>`;
@@ -235,7 +242,7 @@ function buildExpandedRow(q) {
                     <div class="quote-details-grid">
                         <div class="quote-detail-box">
                             <span class="quote-detail-label">Appointment</span>
-                            <p>${q.appointment_date ?? "N/A"}</p>
+                            <p>${formatDateOnly(q.appointment_date)}</p>
                         </div>
 
                         <div class="quote-detail-box">
@@ -245,7 +252,7 @@ function buildExpandedRow(q) {
 
                         <div class="quote-detail-box">
                             <span class="quote-detail-label">Created At</span>
-                            <p>${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</p>
+                            <p>${formatDateOnly(q.created_at)}</p>
                         </div>
                     </div>
 
@@ -275,29 +282,7 @@ function collapseAllRows() {
         row.remove();
     });
 }
-function applyStatusStyle(status) {
-    const box = document.getElementById("statusBox");
-    box.textContent = status || "No current status";
 
-    box.className = "status-badge";
-
-    switch (status) {
-        case "Pending":
-            box.classList.add("status-pending");
-            break;
-        case "Scheduled":
-            box.classList.add("status-scheduled");
-            break;
-        case "In Progress":
-            box.classList.add("status-inprogress");
-            break;
-        case "Completed":
-            box.classList.add("status-completed");
-            break;
-        default:
-            box.classList.add("status-default");
-    }
-}
 fetch("/user-data")
 .then(res => res.json())
 .then(data => {
@@ -335,7 +320,7 @@ fetch("/user-data")
             : `$${Number(latestQuote.quote_price).toFixed(2)}`;
 
     document.getElementById("dateBox").textContent =
-        latestQuote.appointment_date || "N/A";
+        formatDateOnly(latestQuote.appointment_date);
 
     document.getElementById("roomsCountBox").textContent =
         countRooms(latestQuote.rooms);
@@ -351,14 +336,13 @@ fetch("/user-data")
         row.className = "quote-row";
         row.innerHTML = `
             <td>#${q.id ?? "N/A"}</td>
-            <td class="date-cell">${q.appointment_date ?? "N/A"}</td>
+            <td class="date-cell">${formatDateOnly(q.appointment_date)}</td>
             <td class="price-cell">${q.quote_price ? "$" + Number(q.quote_price).toFixed(2) : "N/A"}</td>
             <td>${countRooms(q.rooms)}</td>
-            <td class="date-cell">${q.created_at ? new Date(q.created_at).toLocaleString() : "N/A"}</td>
+            <td class="date-cell">${formatDateOnly(q.created_at)}</td>
         `;
 
         row.addEventListener("click", () => {
-            const next = row.nextElementSibling;
             const isOpen = row.classList.contains("active");
 
             collapseAllRows();
