@@ -245,7 +245,11 @@ function addRoom() {
                         <option value="#C9D3D6" data-color-name="Soft Blue Gray">Soft Blue Gray</option>
                         <option value="#B8C7BC" data-color-name="Smoky Jade">Smoky Jade</option>
                         <option value="#B9AA98" data-color-name="Warm Taupe">Warm Taupe</option>
+                        <option value="custom">Custom Hex Color</option>
                     </select>
+                    <button type="button" class="remove-custom-color-btn" style="display:none; margin-top:8px;">
+                        Remove Custom Color
+                    </button>
                 </div>
 
                 <div class="input-group">
@@ -288,6 +292,24 @@ function addRoom() {
 
     container.appendChild(roomBlock);
 
+    const removeCustomBtn = roomBlock.querySelector(".remove-custom-color-btn");
+
+    removeCustomBtn.addEventListener("click", () => {
+    const select = roomBlock.querySelector(".room-color-select");
+    const customOption = Array.from(select.options).find(option => option.dataset.custom === "true");
+
+    if (customOption) {
+        customOption.value = "custom";
+        customOption.textContent = "Custom Hex Color";
+        delete customOption.dataset.colorName;
+        delete customOption.dataset.custom;
+    }
+
+    select.selectedIndex = 0;
+    removeCustomBtn.style.display = "none";
+    updateColorPreview(roomBlock);
+});
+
     roomBlock.querySelectorAll("input, select, textarea").forEach(el => {
         el.addEventListener("input", () => {
             updateColorPreview(roomBlock);
@@ -313,15 +335,44 @@ function removeRoom(index) {
 
 function updateColorPreview(block) {
     const select = block.querySelector(".room-color-select");
+    const removeBtn = block.querySelector(".remove-custom-color-btn");
     const swatch = block.querySelector(".color-swatch");
     const nameEl = block.querySelector(".color-name");
     const hexEl = block.querySelector(".color-hex");
 
-    if (!select || !swatch || !nameEl || !hexEl) return;
+    if (!select || !removeBtn || !swatch || !nameEl || !hexEl) return;
 
     const selectedOption = select.options[select.selectedIndex];
-    const hex = selectedOption.value;
-    const name = selectedOption.dataset.colorName || selectedOption.textContent;
+
+    if (select.value === "custom") {
+        const customHex = prompt("Enter custom hex color, example: #1F6FEB");
+
+        if (customHex && /^#[0-9A-Fa-f]{6}$/.test(customHex.trim())) {
+            const hex = customHex.trim().toUpperCase();
+
+            selectedOption.value = hex;
+            selectedOption.textContent = `Custom (${hex})`;
+            selectedOption.dataset.colorName = "Custom Color";
+            selectedOption.dataset.custom = "true";
+
+            select.value = hex;
+            removeBtn.style.display = "inline-block";
+
+            swatch.style.background = hex;
+            nameEl.textContent = "Custom Color";
+            hexEl.textContent = hex;
+            return;
+        }
+
+        alert("Invalid hex color. Use format like #FFFFFF");
+        select.selectedIndex = 0;
+    }
+
+    const currentOption = select.options[select.selectedIndex];
+    const hex = currentOption.value;
+    const name = currentOption.dataset.colorName || currentOption.textContent;
+
+    removeBtn.style.display = currentOption.dataset.custom === "true" ? "inline-block" : "none";
 
     swatch.style.background = hex;
     nameEl.textContent = name;

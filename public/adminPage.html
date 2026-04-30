@@ -21,50 +21,56 @@
         </div>
     </div>
 
-    <div class="dashboard-grid dashboard-grid-4">
-        <div class="dashboard-card stat-card">
-            <span class="card-label">Total Quotes</span>
-            <h3 id="totalQuotes">0</h3>
-        </div>
+    <div class="dashboard-card user-summary-widget">
+        
 
-        <div class="dashboard-card stat-card">
+
+        <div class="summary-item">
             <span class="card-label">Estimated Revenue</span>
             <h3 id="totalRevenue">$0.00</h3>
         </div>
 
-        <div class="dashboard-card stat-card">
+        <div class="summary-divider"></div>
+
+        <div class="summary-item">
             <span class="card-label">Average Quote</span>
             <h3 id="avgQuote">$0.00</h3>
         </div>
 
-        <div class="dashboard-card stat-card">
+        <div class="summary-divider"></div>
+
+        <div class="summary-item">
             <span class="card-label">Upcoming Appointments</span>
             <h3 id="upcomingCount">0</h3>
         </div>
+
+        <div class="summary-divider"></div>
+
+        <div class="summary-item">
+            <span class="card-label">Next Customer</span>
+            <h3 id="latestCustomer">Loading...</h3>
+        </div>
+
+        <div class="summary-divider"></div>
+
+        <div class="summary-item">
+            <span class="card-label">Next Appointment</span>
+            <h3 id="latestDate">Loading...</h3>
+        </div>
+
+        <div class="summary-divider"></div>
+
+        <div class="summary-item">
+            <span class="card-label">Next Quote Price</span>
+            <h3 id="latestPrice">$0.00</h3>
+        </div>
     </div>
 
-    <div class="dashboard-grid dashboard-grid-3">
-        <div class="dashboard-card">
-            <div class="card-header-row">
-                <h3>Next Appointment</h3>
-            </div>
-            <p id="latestCustomer" class="dashboard-text">Loading...</p>
-            <p id="latestDate" class="dashboard-muted">Loading...</p>
+    <div class="dashboard-card">
+        <div class="card-header-row">
+            <h3>Next Project Description</h3>
         </div>
-
-        <div class="dashboard-card">
-            <div class="card-header-row">
-                <h3>Next Quote Price</h3>
-            </div>
-            <p id="latestPrice" class="admin-highlight-number">$0.00</p>
-        </div>
-
-        <div class="dashboard-card">
-            <div class="card-header-row">
-                <h3>Next Project Description</h3>
-            </div>
-            <p id="latestDescription" class="dashboard-text">Loading...</p>
-        </div>
+        <p id="latestDescription" class="dashboard-text">Loading...</p>
     </div>
 
     <div class="dashboard-card table-card">
@@ -181,7 +187,13 @@ function countRooms(roomsText) {
 function formatMoney(value) {
     const num = Number(value);
     if (Number.isNaN(num)) return "$0.00";
-    return `$${num.toFixed(2)}`;
+
+    return num.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
 function formatDateOnly(value) {
@@ -315,139 +327,151 @@ function collapseAllRows() {
     });
 }
 
-fetch("/quotes")
-.then(res => {
-    if (!res.ok) throw new Error("Could not load quotes");
-    return res.json();
-})
-.then(data => {
-    const body = document.getElementById("quotesBody");
+async function loadAdminQuotes() {
+    try {
+        const res = await fetch("/quotes");
 
-    document.getElementById("totalQuotes").textContent = data.length;
+        if (!res.ok) {
+            throw new Error("Could not load quotes");
+        }
 
-    const totalRevenue = data.reduce((sum, q) => sum + (Number(q.quote_price) || 0), 0);
-    const avgQuote = data.length ? totalRevenue / data.length : 0;
+        const data = await res.json();
+        const body = document.getElementById("quotesBody");
+        body.innerHTML = "";
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const upcomingCount = data.filter(q => {
-        if (!q.appointment_date) return false;
-        const appt = new Date(q.appointment_date);
-        return !Number.isNaN(appt.getTime()) && appt >= today;
-    }).length;
+        const totalRevenue = data.reduce((sum, q) => sum + (Number(q.quote_price) || 0), 0);
+        const avgQuote = data.length ? totalRevenue / data.length : 0;
 
-    document.getElementById("totalRevenue").textContent = formatMoney(totalRevenue);
-    document.getElementById("avgQuote").textContent = formatMoney(avgQuote);
-    document.getElementById("upcomingCount").textContent = upcomingCount;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-    if (data.length > 0) {
-        const latest = data[0];
+        const activeQuotes = data.filter(q => {
+            const status = q.current_status || "Pending";
+            return status !== "Completed";
+        });
 
-        document.getElementById("latestCustomer").textContent =
-            `${latest.first_name ?? ""} ${latest.last_name ?? ""}`.trim() || "N/A";
+        const upcomingCount = activeQuotes.filter(q => {
+            if (!q.appointment_date) return false;
+            const appt = new Date(q.appointment_date);
+            return !Number.isNaN(appt.getTime()) && appt >= today;
+        }).length;
 
-        document.getElementById("latestDate").textContent =
-            latest.appointment_date ? `Appointment: ${formatDateOnly(latest.appointment_date)}` : "Appointment: N/A";
+        document.getElementById("totalRevenue").textContent = formatMoney(totalRevenue);
+        document.getElementById("avgQuote").textContent = formatMoney(avgQuote);
+        document.getElementById("upcomingCount").textContent = upcomingCount;
 
-        document.getElementById("latestPrice").textContent =
-            latest.quote_price ? formatMoney(latest.quote_price) : "N/A";
+        const nextQuote = activeQuotes[0] || null;
 
-        document.getElementById("latestDescription").textContent =
-            latest.description || "No description provided.";
-    } else {
-        document.getElementById("latestCustomer").textContent = "No requests yet";
-        document.getElementById("latestDate").textContent = "Appointment: N/A";
-        document.getElementById("latestPrice").textContent = "$0.00";
-        document.getElementById("latestDescription").textContent = "No description available.";
-    }
+        if (nextQuote) {
+            document.getElementById("latestCustomer").textContent =
+                `${nextQuote.first_name ?? ""} ${nextQuote.last_name ?? ""}`.trim() || "N/A";
 
-    if (data.length === 0) {
-        body.innerHTML = `
+            document.getElementById("latestDate").textContent =
+                nextQuote.appointment_date ? `Appointment: ${formatDateOnly(nextQuote.appointment_date)}` : "Appointment: N/A";
+
+            document.getElementById("latestPrice").textContent =
+                nextQuote.quote_price ? formatMoney(nextQuote.quote_price) : "N/A";
+
+            document.getElementById("latestDescription").textContent =
+                nextQuote.description || "No description provided.";
+        } else {
+            document.getElementById("latestCustomer").textContent = data.length ? "All quotes completed" : "No requests yet";
+            document.getElementById("latestDate").textContent = "N/A";
+            document.getElementById("latestPrice").textContent = "$0.00";
+            document.getElementById("latestDescription").textContent = data.length
+                ? "There are no pending, scheduled, or in-progress quotes."
+                : "No description available.";
+        }
+
+        if (data.length === 0) {
+            body.innerHTML = `
+                <tr>
+                    <td colspan="7" class="table-empty">No quotes submitted yet.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        data.forEach(q => {
+            const row = document.createElement("tr");
+            row.className = "quote-row";
+
+            row.innerHTML = `
+                <td>#${q.id ?? "N/A"}</td>
+                <td>${q.first_name ?? ""} ${q.last_name ?? ""}</td>
+                <td class="date-cell">${formatDateOnly(q.appointment_date)}</td>
+                <td class="price-cell">${q.quote_price ? formatMoney(q.quote_price) : "N/A"}</td>
+                <td>${countRooms(q.rooms)}</td>
+                <td>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${buildStatusBadge(q.current_status)}
+                        <select class="status-select" data-user-id="${q.user_id}">
+                            <option value="Pending" ${q.current_status === "Pending" ? "selected" : ""}>Pending</option>
+                            <option value="Scheduled" ${q.current_status === "Scheduled" ? "selected" : ""}>Scheduled</option>
+                            <option value="In Progress" ${q.current_status === "In Progress" ? "selected" : ""}>In Progress</option>
+                            <option value="Completed" ${q.current_status === "Completed" ? "selected" : ""}>Completed</option>
+                        </select>
+                    </div>
+                </td>
+                <td class="date-cell">${formatDateTime(q.created_at)}</td>
+            `;
+
+            row.addEventListener("click", (event) => {
+                if (event.target.closest(".status-select")) return;
+
+                const isOpen = row.classList.contains("active");
+                collapseAllRows();
+
+                if (!isOpen) {
+                    row.classList.add("active");
+                    row.insertAdjacentHTML("afterend", buildExpandedRow(q));
+                }
+            });
+
+            body.appendChild(row);
+
+            const statusSelect = row.querySelector(".status-select");
+            statusSelect.addEventListener("change", async (event) => {
+                const userId = event.target.dataset.userId;
+                const newStatus = event.target.value;
+
+                try {
+                    const res = await fetch("/admin/update-status", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            user_id: userId,
+                            status: newStatus
+                        })
+                    });
+
+                    const result = await res.json();
+
+                    if (!res.ok) {
+                        throw new Error(result.error || "Could not update status");
+                    }
+
+                    await loadAdminQuotes();
+                } catch (err) {
+                    console.error(err);
+                    alert("Error updating status");
+                }
+            });
+        });
+    } catch (err) {
+        console.error(err);
+        document.getElementById("quotesBody").innerHTML = `
             <tr>
-                <td colspan="7" class="table-empty">No quotes submitted yet.</td>
+                <td colspan="7" class="table-empty">Error loading quotes.</td>
             </tr>
         `;
-        return;
     }
+}
 
-    data.forEach(q => {
-        const row = document.createElement("tr");
-        row.className = "quote-row";
-
-        row.innerHTML = `
-            <td>#${q.id ?? "N/A"}</td>
-            <td>${q.first_name ?? ""} ${q.last_name ?? ""}</td>
-            <td class="date-cell">${formatDateOnly(q.appointment_date)}</td>
-            <td class="price-cell">${q.quote_price ? formatMoney(q.quote_price) : "N/A"}</td>
-            <td>${countRooms(q.rooms)}</td>
-            <td>
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                    ${buildStatusBadge(q.current_status)}
-                    <select class="status-select" data-user-id="${q.user_id}">
-                        <option value="Pending" ${q.current_status === "Pending" ? "selected" : ""}>Pending</option>
-                        <option value="Scheduled" ${q.current_status === "Scheduled" ? "selected" : ""}>Scheduled</option>
-                        <option value="In Progress" ${q.current_status === "In Progress" ? "selected" : ""}>In Progress</option>
-                        <option value="Completed" ${q.current_status === "Completed" ? "selected" : ""}>Completed</option>
-                    </select>
-                </div>
-            </td>
-            <td class="date-cell">${formatDateTime(q.created_at)}</td>
-        `;
-
-        row.addEventListener("click", (event) => {
-            if (event.target.closest(".status-select")) return;
-
-            const isOpen = row.classList.contains("active");
-            collapseAllRows();
-
-            if (!isOpen) {
-                row.classList.add("active");
-                row.insertAdjacentHTML("afterend", buildExpandedRow(q));
-            }
-        });
-
-        body.appendChild(row);
-
-        const statusSelect = row.querySelector(".status-select");
-        statusSelect.addEventListener("change", async (event) => {
-            const userId = event.target.dataset.userId;
-            const newStatus = event.target.value;
-
-            try {
-                const res = await fetch("/admin/update-status", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        status: newStatus
-                    })
-                });
-
-                const result = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(result.error || "Could not update status");
-                }
-
-                window.location.reload();
-            } catch (err) {
-                console.error(err);
-                alert("Error updating status");
-            }
-        });
-    });
-})
-.catch(err => {
-    console.error(err);
-    document.getElementById("quotesBody").innerHTML = `
-        <tr>
-            <td colspan="7" class="table-empty">Error loading quotes.</td>
-        </tr>
-    `;
-});
+loadAdminQuotes();
 </script>
 
 </body>

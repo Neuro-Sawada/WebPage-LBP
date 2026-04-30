@@ -191,7 +191,13 @@ window.addEventListener("click", function() {
 });
 
 function money(value) {
-    return `$${Number(value || 0).toFixed(2)}`;
+    const num = Number(value || 0);
+    return num.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
 function formatDateOnly(value) {
@@ -301,7 +307,7 @@ async function loadWorksheet() {
 
 function downloadPdf() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const doc = new jsPDF("p", "mm", "letter");
 
     const hourlyRate = Number(document.getElementById("hourlyRate").value || 0);
     const laborHours = Number(document.getElementById("laborHours").value || 0);
@@ -313,20 +319,72 @@ function downloadPdf() {
     const repairsTotal = repairs.reduce((sum, row) => sum + row.lineTotal, 0);
     const grandTotal = laborTotal + materialCost + repairsTotal;
 
-    doc.setFontSize(18);
-    doc.text("Lilly Brothers Painting - Quote Worksheet", 14, 18);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const brandDark = [20, 0, 0];
+    const brandOrange = [255, 77, 0];
+    const lightFill = [255, 247, 242];
+    const softGray = [245, 245, 245];
 
-    doc.setFontSize(11);
-    doc.text(`Customer: ${quoteData.first_name} ${quoteData.last_name}`, 14, 30);
-    doc.text(`Email: ${quoteData.email || "N/A"}`, 14, 37);
-    doc.text(`Phone: ${quoteData.phone_number || "N/A"}`, 14, 44);
-    doc.text(`Appointment: ${formatDateOnly(quoteData.appointment_date)}`, 14, 51);
+    const customerName = `${quoteData.first_name || ""} ${quoteData.last_name || ""}`.trim() || "N/A";
+    const appointment = formatDateOnly(quoteData.appointment_date);
+    const description = quoteData.description || "No description provided.";
 
-    doc.text("Project Description:", 14, 62);
-    doc.text(doc.splitTextToSize(quoteData.description || "No description provided.", 180), 14, 69);
+    doc.setFillColor(...brandDark);
+    doc.rect(0, 0, pageWidth, 32, "F");
+    doc.setFillColor(...brandOrange);
+    doc.rect(0, 32, pageWidth, 2, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(19);
+    doc.text("Lilly Brothers Painting", margin, 15);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Professional Painting Quote Worksheet", margin, 23);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(`Quote #${quoteId}`, pageWidth - margin, 15, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(new Date().toLocaleDateString(), pageWidth - margin, 23, { align: "right" });
+
+    let y = 44;
+    doc.setTextColor(31, 31, 31);
+    doc.setDrawColor(230, 230, 230);
+    doc.setFillColor(...softGray);
+    doc.roundedRect(margin, y, 88, 42, 3, 3, "FD");
+    doc.roundedRect(margin + 96, y, pageWidth - margin * 2 - 96, 42, 3, 3, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...brandOrange);
+    doc.text("CUSTOMER", margin + 5, y + 8);
+    doc.text("PROJECT", margin + 101, y + 8);
+
+    doc.setTextColor(35, 35, 35);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(customerName, margin + 5, y + 17);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Email: ${quoteData.email || "N/A"}`, margin + 5, y + 25);
+    doc.text(`Phone: ${quoteData.phone_number || "N/A"}`, margin + 5, y + 33);
+
+    doc.text(`Appointment: ${appointment}`, margin + 101, y + 17);
+    const descLines = doc.splitTextToSize(description, pageWidth - margin * 2 - 106);
+    doc.text(descLines.slice(0, 3), margin + 101, y + 25);
+
+    y = 96;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...brandDark);
+    doc.text("Room Details", margin, y);
 
     doc.autoTable({
-        startY: 88,
+        startY: y + 6,
         head: [["Room", "Paint Type", "Color", "Size", "Description"]],
         body: roomData.map(room => [
             room.room_name || "N/A",
@@ -335,42 +393,153 @@ function downloadPdf() {
             room.room_size ? room.room_size + " sq ft" : "N/A",
             room.room_description || "N/A"
         ]),
-        styles: { fontSize: 9 }
+        theme: "grid",
+        headStyles: {
+            fillColor: brandDark,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            halign: "left"
+        },
+        styles: {
+            fontSize: 8.5,
+            cellPadding: 3,
+            lineColor: [230, 230, 230],
+            lineWidth: 0.2,
+            valign: "top"
+        },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
+        margin: { left: margin, right: margin }
     });
+
+    y = doc.lastAutoTable.finalY + 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...brandDark);
+    doc.text("Repairs / Extras", margin, y);
 
     doc.autoTable({
-        startY: doc.lastAutoTable.finalY + 10,
-        head: [["Repair / Extra", "Qty", "Unit Price", "Line Total"]],
+        startY: y + 6,
+        head: [["Item", "Qty", "Unit Price", "Line Total"]],
         body: repairs.length
-            ? repairs.map(row => [
-                row.item || "N/A",
-                row.qty,
-                money(row.unitPrice),
-                money(row.lineTotal)
-            ])
+            ? repairs.map(row => [row.item || "N/A", Number(row.qty).toFixed(2), money(row.unitPrice), money(row.lineTotal)])
             : [["No repairs added", "", "", ""]],
-        styles: { fontSize: 9 }
+        theme: "grid",
+        headStyles: {
+            fillColor: brandDark,
+            textColor: [255, 255, 255],
+            fontStyle: "bold"
+        },
+        styles: {
+            fontSize: 9,
+            cellPadding: 3,
+            lineColor: [230, 230, 230],
+            lineWidth: 0.2
+        },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
+        columnStyles: {
+            1: { halign: "right" },
+            2: { halign: "right" },
+            3: { halign: "right" }
+        },
+        margin: { left: margin, right: margin }
     });
 
-    let y = doc.lastAutoTable.finalY + 12;
+    y = doc.lastAutoTable.finalY + 12;
 
-    doc.text(`Hourly Rate: ${money(hourlyRate)}`, 14, y);
-    y += 7;
-    doc.text(`Labor Hours: ${laborHours.toFixed(2)}`, 14, y);
-    y += 7;
-    doc.text(`Labor Total: ${money(laborTotal)}`, 14, y);
-    y += 7;
-    doc.text(`Material Cost: ${money(materialCost)}`, 14, y);
-    y += 7;
-    doc.text(`Repairs Total: ${money(repairsTotal)}`, 14, y);
-    y += 7;
-    doc.setFontSize(13);
-    doc.text(`Grand Total: ${money(grandTotal)}`, 14, y);
-    y += 12;
+    if (y > pageHeight - 95) {
+        doc.addPage();
+        y = 22;
+    }
 
+    const contentWidth = pageWidth - margin * 2;
+    const summaryHeight = 62;
+
+    doc.setFillColor(...lightFill);
+    doc.setDrawColor(242, 215, 200);
+    doc.roundedRect(margin, y, contentWidth, summaryHeight, 3, 3, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...brandDark);
+    doc.text("Quote Summary", margin + 6, y + 9);
+
+    const summaryRows = [
+        ["Hourly Rate", money(hourlyRate)],
+        ["Labor Hours", laborHours.toFixed(2)],
+        ["Labor Total", money(laborTotal)],
+        ["Material Cost", money(materialCost)],
+        ["Repairs Total", money(repairsTotal)]
+    ];
+
+    const leftColX = margin + 6;
+    const rightColX = margin + contentWidth / 2 + 4;
+    const leftValueX = margin + contentWidth / 2 - 8;
+    const rightValueX = margin + contentWidth - 6;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    summaryRows.forEach(([label, value], index) => {
+        const isLeft = index < 3;
+        const rowIndex = isLeft ? index : index - 3;
+        const labelX = isLeft ? leftColX : rightColX;
+        const valueX = isLeft ? leftValueX : rightValueX;
+        const rowY = y + 20 + rowIndex * 7;
+
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, labelX, rowY);
+        doc.setTextColor(35, 35, 35);
+        doc.text(value, valueX, rowY, { align: "right" });
+    });
+
+    const grandBoxY = y + 42;
+    const grandBoxH = 14;
+
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...brandOrange);
+    doc.roundedRect(margin + 6, grandBoxY, contentWidth - 12, grandBoxH, 3, 3, "FD");
+
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text("Notes:", 14, y);
-    doc.text(doc.splitTextToSize(notes || "None", 180), 14, y + 7);
+    doc.setTextColor(...brandDark);
+    doc.text("Grand Total", margin + 12, grandBoxY + 9);
+
+    const grandTotalText = money(grandTotal);
+    let grandTotalFontSize = 13;
+    const maxGrandTotalWidth = contentWidth - 78;
+
+    while (doc.getTextWidth(grandTotalText) > maxGrandTotalWidth && grandTotalFontSize > 8) {
+        grandTotalFontSize -= 0.5;
+        doc.setFontSize(grandTotalFontSize);
+    }
+
+    doc.setFontSize(grandTotalFontSize);
+    doc.setTextColor(...brandOrange);
+    doc.text(grandTotalText, margin + contentWidth - 12, grandBoxY + 9, { align: "right" });
+
+    y += summaryHeight + 10;
+
+    const notesWidth = contentWidth;
+    const notesHeight = 34;
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(230, 230, 230);
+    doc.roundedRect(margin, y, notesWidth, notesHeight, 3, 3, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...brandDark);
+    doc.setFontSize(11);
+    doc.text("Notes", margin + 5, y + 8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text(doc.splitTextToSize(notes || "No notes added.", notesWidth - 10).slice(0, 4), margin + 5, y + 17);
+
+    doc.setFillColor(...brandDark);
+    doc.rect(0, pageHeight - 14, pageWidth, 14, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Lilly Brothers Painting • Professional Residential & Commercial Painting", margin, pageHeight - 6);
+    doc.text("Thank you for choosing Lilly Brothers Painting.", pageWidth - margin, pageHeight - 6, { align: "right" });
 
     doc.save(`quote-worksheet-${quoteId}.pdf`);
 }

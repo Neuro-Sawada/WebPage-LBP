@@ -14,48 +14,90 @@
 </header>
 
 <main>
-<section class="about-page" style="margin-top: 50px;">
-
-    <div class="page-card">
-        <h2>About Lilly Brothers Painting</h2>
-        <p class="page-subtitle">Professional residential and commercial painting with care, detail, and reliability.</p>
+<section class="about-hero">
+    <div class="about-hero-content">
+        <h2>Professional Painting Done With Care, Detail, and Reliability</h2>
+        <p>
+            Lilly Brothers Painting provides clean, high-quality residential and commercial
+            painting services for customers who want dependable work and beautiful results.
+        </p>
+        <a href="/quote" class="hero-button">Request a Free Quote</a>
     </div>
+</section>
+
+<section class="about-page">
 
     <div class="about-layout">
-
         <div class="page-card about-text-card">
+            <span class="about-kicker">About Us</span>
+            <h2>About Lilly Brothers Painting</h2>
+
             <p>
                 Lilly Brothers Painting is a family-owned painting company proudly serving
-                Cincinnati and surrounding areas. With years of experience in residential
-                and commercial painting, our mission is to deliver high-quality work and
-                exceptional customer service.
+                Cincinnati and surrounding areas. We focus on quality craftsmanship, clear
+                communication, and professional service from the first quote to the final walkthrough.
             </p>
 
             <p>
-                Our team specializes in interior painting, exterior painting, drywall repair,
-                and detailed finishing work. We believe that attention to detail, reliability,
-                and professionalism are the keys to creating results that homeowners and
-                businesses can trust.
+                Our team handles interior painting, exterior painting, drywall repair, prep work,
+                and detailed finishes. Whether it is one room, a full home, or a commercial space,
+                we treat every project with care and attention to detail.
             </p>
 
             <p>
-                At Lilly Brothers Painting, we treat every home like it is our own. From small
-                rooms to full property transformations, our goal is to provide beautiful,
-                long-lasting finishes that make your space look its best.
+                We believe a great paint job is more than just color on a wall. It is about proper
+                preparation, clean lines, reliable scheduling, and results that make your space feel
+                refreshed and well finished.
             </p>
         </div>
 
         <div class="page-card about-side-card">
             <h3>Why Choose Us?</h3>
-            <ul class="about-list">
-                <li>High-quality interior and exterior painting</li>
-                <li>Professional and friendly service</li>
-                <li>Attention to detail and clean finishes</li>
-                <li>Reliable scheduling and communication</li>
-                <li>Trusted local painting company</li>
-            </ul>
+
+            <div class="about-feature-list">
+                <div class="about-feature">
+                    <span>✓</span>
+                    <p>Interior and exterior painting</p>
+                </div>
+
+                <div class="about-feature">
+                    <span>✓</span>
+                    <p>Drywall repair and surface prep</p>
+                </div>
+
+                <div class="about-feature">
+                    <span>✓</span>
+                    <p>Clean, detailed finishes</p>
+                </div>
+
+                <div class="about-feature">
+                    <span>✓</span>
+                    <p>Friendly and professional service</p>
+                </div>
+
+                <div class="about-feature">
+                    <span>✓</span>
+                    <p>Reliable scheduling and communication</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="about-stats">
+        <div class="page-card about-stat-card">
+            <h3>Residential</h3>
+            <p>Rooms, ceilings, trim, full interiors, and exterior refreshes.</p>
         </div>
 
+        <div class="page-card about-stat-card">
+            <h3>Commercial</h3>
+            <p>Professional painting for offices, rentals, and business spaces.</p>
+        </div>
+
+        <div class="page-card about-stat-card">
+            <h3>Detail Work</h3>
+            <p>Prep, repairs, clean edges, and smooth finishing touches.</p>
+        </div>
     </div>
 
 </section>
@@ -91,6 +133,7 @@ fetch("/current-user")
                     <a href="/user">My Page</a>
                     ${data.isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
                     <a href="/logout">Logout</a>
+                </div>
             </div>
         `;
     } else {
@@ -101,8 +144,8 @@ fetch("/current-user")
             <div class="dropdown">
                 <button class="dropbtn" onclick="toggleMenu(event, 'aboutMenu')">About us ▾</button>
                 <div id="aboutMenu" class="dropdown-content">
-                    <a href="/contact.html">Contact</a>
-                    <a href="/about.html">About</a>
+                    <a href="/contact">Contact</a>
+                    <a href="/about">About</a>
                 </div>
             </div>
 
@@ -128,12 +171,7 @@ function toggleMenu(event, menuId) {
     });
 
     const menu = document.getElementById(menuId);
-
-    if (menu.style.display === "block") {
-        menu.style.display = "none";
-    } else {
-        menu.style.display = "block";
-    }
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
 }
 
 window.addEventListener("click", function() {
